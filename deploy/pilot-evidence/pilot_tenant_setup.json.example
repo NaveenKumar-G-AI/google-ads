@@ -1,0 +1,12 @@
+{
+  "schema_version": "recovery-pilot-evidence.v1",
+  "kind": "pilot_tenant_setup",
+  "status": "pending",
+  "performed_at": "2026-10-16T00:00:00+00:00",
+  "operator": "REPLACE_WITH_OPERATOR",
+  "detail": "Confirm pilot Owner, account scope, operational controls and escalation contacts.",
+  "release_id": null,
+  "evidence_refs": [
+    "REPLACE_WITH_INTERNAL_TENANT_DIAGNOSTIC_OR_TICKET"
+  ]
+}

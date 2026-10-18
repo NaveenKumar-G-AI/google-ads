@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+real-sync-data/
+google-ads.yaml
+service-account*.json
+*service_account*.json
+.env
+.env.*

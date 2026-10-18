@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "google-ads-recovery-core"
+version = "0.35.0"
+description = "Accuracy-first core for Google Ads search-term waste analysis"
+requires-python = ">=3.11,<3.15"
+dependencies = [
+  "google-ads==34.0.0",
+  "psycopg[binary]==3.3.6",
+  "fastapi==0.143.1",
+  "uvicorn[standard]==0.54.0",
+  "PyJWT[crypto]==2.15.1",
+  "google-genai==2.31.0",
+  "google-cloud-secret-manager==2.31.0",
+  "weasyprint==68.0",
+]
+
+[project.scripts]
+recovery-worker = "recovery.worker.cli:main"
+recovery-staging-validate = "recovery.staging_validation:main"
+recovery-staging-preflight = "recovery.staging_preflight:main"
+recovery-staging-live = "recovery.staging_live:main"
+recovery-production-check = "recovery.deployment:main"
+recovery-migrate = "recovery.deployment:migration_main"
+recovery-staging-accept = "recovery.acceptance:main"
+recovery-platform-operator = "recovery.internal_admin_bootstrap:main"
+recovery-pilot-gate = "recovery.pilot_gate:main"
+recovery-launch-gate = "recovery.launch_gate:main"
+recovery-launch-public-surface = "recovery.launch_public_surface:main"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3,<9",
+  "httpx>=0.28,<0.29",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.setuptools.package-data]
+"recovery.db.migrations" = ["*.sql"]

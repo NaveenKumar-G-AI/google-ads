@@ -1,0 +1,5 @@
+"use server";
+import { revalidatePath } from "next/cache";
+import { createSearchSavedView,deleteSearchSavedView } from "@/lib/recovery-api";
+export async function saveSearchViewAction(formData:FormData){const tenant=String(formData.get("tenant")),account=String(formData.get("account")),name=String(formData.get("name")||"").trim();if(!name)throw new Error("View name is required");const filters={start:String(formData.get("start")||"")||null,end:String(formData.get("end")||"")||null,query:String(formData.get("query")||"")||null,network:String(formData.get("network")||"")||null,fit:String(formData.get("fit")||"")||null,sort:String(formData.get("sort")||"cost")};await createSearchSavedView(tenant,{account_id:account,portfolio_id:null,name,filters,is_default:false});revalidatePath("/app/search-intelligence/terms");}
+export async function deleteSearchViewAction(formData:FormData){const tenant=String(formData.get("tenant")),id=String(formData.get("view"));await deleteSearchSavedView(tenant,id);revalidatePath("/app/search-intelligence/terms");}

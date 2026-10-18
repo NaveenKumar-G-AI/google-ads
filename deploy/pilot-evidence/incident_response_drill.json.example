@@ -1,0 +1,12 @@
+{
+  "schema_version": "recovery-pilot-evidence.v1",
+  "kind": "incident_response_drill",
+  "status": "pending",
+  "performed_at": "2026-10-16T00:00:00+00:00",
+  "operator": "REPLACE_WITH_OPERATOR",
+  "detail": "REPLACE_WITH_COMPLETED_DRILL_OR_REVIEW_RESULT",
+  "release_id": null,
+  "evidence_refs": [
+    "REPLACE_WITH_TICKET_LOG_SCREENSHOT_OR_REPORT_REFERENCE"
+  ]
+}

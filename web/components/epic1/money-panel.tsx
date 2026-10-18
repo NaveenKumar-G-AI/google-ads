@@ -1,0 +1,2 @@
+import { money } from "@/lib/format";
+export function MoneyPanel({currency,candidate,verified}:{currency:string;candidate:number;verified:number}){return <div className="money-pair"><div><span>Potentially avoidable observed</span><strong>{money(candidate,currency)}</strong><small>Historical mature observed evidence. Not recovered.</small></div><div className="verified-money"><span>Verified recovery</span><strong>{money(verified,currency)}</strong><small>Only causally verified value enters this total.</small></div></div>}

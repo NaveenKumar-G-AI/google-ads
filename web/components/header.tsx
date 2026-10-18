@@ -1,0 +1,2 @@
+import type { Account } from "@/lib/types";
+export function Header({eyebrow,title,subtitle,account}:{eyebrow:string;title:string;subtitle:string;account:Account}){return <div className="topbar"><div><div className="eyebrow">{eyebrow}</div><h1 className="title">{title}</h1><div className="subtitle">{subtitle}</div></div><div className="account-chip"><strong style={{color:"var(--text)"}}>{account.descriptive_name}</strong><br/>{account.customer_id} · {account.currency_code}</div></div>}

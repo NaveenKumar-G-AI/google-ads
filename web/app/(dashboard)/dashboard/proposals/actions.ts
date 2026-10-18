@@ -1,0 +1,6 @@
+"use server";
+import { revalidatePath } from "next/cache";import { apiFetch } from "@/lib/recovery-api";
+export async function decideProposal(formData:FormData){const tenant=String(formData.get("tenant"));const proposal=String(formData.get("proposal"));const fingerprint=String(formData.get("fingerprint"));const decision=String(formData.get("decision"));if(!["approved","rejected"].includes(decision))throw new Error("invalid decision");await apiFetch(`/v1/tenants/${tenant}/proposals/${proposal}/decision`,{method:"POST",body:JSON.stringify({decision,proposal_fingerprint:fingerprint})});revalidatePath("/dashboard/proposals");}
+
+export async function executeProposal(formData:FormData){const tenant=String(formData.get("tenant"));const proposal=String(formData.get("proposal"));await apiFetch(`/v1/tenants/${tenant}/proposals/${proposal}/execute`,{method:"POST",headers:{"Idempotency-Key":crypto.randomUUID()},body:""});revalidatePath("/dashboard/proposals");}
+export async function rollbackProposal(formData:FormData){const tenant=String(formData.get("tenant"));const proposal=String(formData.get("proposal"));await apiFetch(`/v1/tenants/${tenant}/proposals/${proposal}/rollback`,{method:"POST",headers:{"Idempotency-Key":crypto.randomUUID()},body:""});revalidatePath("/dashboard/proposals");}

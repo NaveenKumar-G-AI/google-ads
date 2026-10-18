@@ -1,0 +1,22 @@
+# Single immutable backend image used by both the Cloud Run API service and worker pool.
+FROM python:3.13-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PORT=8080
+
+RUN apt-get update && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 fonts-noto-core && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd --system recovery && useradd --system --gid recovery --create-home recovery
+WORKDIR /app
+
+COPY pyproject.toml README.md ./
+COPY src ./src
+RUN python -m pip install --upgrade pip && python -m pip install .
+
+USER recovery
+EXPOSE 8080
+
+# Cloud Run API default. Worker Pool overrides command to `recovery-worker`.
+CMD ["sh", "-c", "exec uvicorn recovery.api.app:create_app_from_env --factory --host 0.0.0.0 --port ${PORT:-8080} --proxy-headers --forwarded-allow-ips='*'"]

@@ -1,0 +1,4 @@
+"use server";
+import { revalidatePath } from "next/cache";import { createSupportCase,supportCaseEvent } from "@/lib/recovery-api";
+export async function createSupportCaseAction(formData:FormData){const tenant=String(formData.get("tenant")),account_id=String(formData.get("account_id")||"")||null;await createSupportCase(tenant,{account_id,category:String(formData.get("category")||"product"),subject:String(formData.get("subject")||"").trim(),body:String(formData.get("body")||"").trim()});revalidatePath("/app/help")}
+export async function supportCaseEventAction(formData:FormData){const tenant=String(formData.get("tenant")),caseId=String(formData.get("case")),event_type=String(formData.get("event_type")),comment=String(formData.get("comment")||"").trim()||null;await supportCaseEvent(tenant,caseId,event_type,comment);revalidatePath(`/app/help/support/${caseId}`);revalidatePath("/app/help")}
