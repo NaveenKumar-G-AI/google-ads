@@ -8,3 +8,7 @@ service-account*.json
 *service_account*.json
 .env
 .env.*
+node_modules/
+.next/
+*.tsbuildinfo
+.cache/

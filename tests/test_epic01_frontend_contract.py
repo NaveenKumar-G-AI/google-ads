@@ -3,8 +3,13 @@ ROOT=Path(__file__).resolve().parents[1]/"web"
 
 def read(rel): return (ROOT/rel).read_text(encoding="utf-8")
 
-def test_root_product_entry_is_canonical_app_not_legacy_dashboard():
-    assert 'redirect("/app")' in read("app/page.tsx")
+def test_root_is_public_marketing_and_authenticated_product_remains_at_app():
+    homepage = read("app/page.tsx")
+    assert "MarketingHome" in homepage
+    assert "redirect(" not in homepage
+    product = read("app/(dashboard)/app/page.tsx")
+    assert "resolveAppContext" in product
+    assert "AppShell" in product
 
 def test_canonical_shell_has_org_portfolio_account_context_and_mature_navigation():
     shell=read("components/epic1/app-shell.tsx")
@@ -33,6 +38,6 @@ def test_new_shell_includes_tasks_notifications_search_accounts_and_portfolios()
     for rel in required: assert (ROOT/rel).exists(), rel
 
 def test_frontend_still_contains_no_server_secrets():
-    text="\n".join(p.read_text(encoding="utf-8") for p in ROOT.rglob("*.ts*") if p.is_file())
+    text="\n".join(p.read_text(encoding="utf-8") for source in ("app", "lib", "components") for p in (ROOT/source).rglob("*.ts*") if p.is_file())
     for secret in ("SUPABASE_SERVICE_ROLE_KEY","RECOVERY_WORKER_DATABASE_URL","GEMINI_API_KEY","RAZORPAY_KEY_SECRET","GOOGLE_ADS_SERVICE_ACCOUNT_JSON"):
         assert secret not in text

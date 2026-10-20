@@ -1,5 +1,5 @@
-import fs from "node:fs";import path from "node:path";
-const root=path.resolve(path.dirname(new URL(import.meta.url).pathname),"..");
+import fs from "node:fs";import path from "node:path";import { fileURLToPath } from "node:url";
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
 const legacy=["app/(dashboard)/dashboard/page.tsx","app/(dashboard)/dashboard/findings/page.tsx","app/(dashboard)/dashboard/proposals/page.tsx","app/(dashboard)/dashboard/recovery/page.tsx","app/(dashboard)/dashboard/billing/page.tsx"];
 const epic1=["app/(dashboard)/app/page.tsx","app/(dashboard)/app/accounts/page.tsx","app/(dashboard)/app/portfolios/page.tsx","app/(dashboard)/app/tasks/page.tsx","app/(dashboard)/app/notifications/page.tsx","app/(dashboard)/app/data-status/page.tsx","components/epic1/app-shell.tsx","components/epic1/context-switcher.tsx","lib/epic1/context.ts","lib/recovery-api.ts","lib/supabase/server.ts","proxy.ts"];
 const epic2=["app/(auth)/signup/page.tsx","app/(auth)/signup/actions.ts","app/(dashboard)/onboarding/page.tsx","app/(dashboard)/onboarding/actions.ts","app/api/google-ads/oauth/callback/route.ts"];
@@ -22,7 +22,8 @@ for(const forbidden of ["SUPABASE_SERVICE_ROLE_KEY","RECOVERY_STAGING_DATABASE_U
 if(!text.includes("potentially_avoidable_observed_micros")||!text.includes("verified_recovery_micros"))throw new Error("financial evidence classes missing");
 if(!text.includes("money_by_currency"))throw new Error("command center must aggregate money by currency, not across currencies");
 if(!text.includes("getClaims()")||!text.includes("getSession()"))throw new Error("server auth must verify claims before forwarding session token");
-const rootPage=fs.readFileSync(path.join(root,"app/page.tsx"),"utf8");if(!rootPage.includes('redirect("/app")'))throw new Error("canonical product entry must be /app");
+const rootPage=fs.readFileSync(path.join(root,"app/page.tsx"),"utf8");if(!rootPage.includes("MarketingHome")||rootPage.includes("redirect("))throw new Error("root must render the public marketing homepage");
+const productEntry=fs.readFileSync(path.join(root,"app/(dashboard)/app/page.tsx"),"utf8");if(!productEntry.includes("resolveAppContext")||!productEntry.includes("AppShell"))throw new Error("authenticated product entry must remain at /app");
 const onboarding=fs.readFileSync(path.join(root,"app/(dashboard)/onboarding/page.tsx"),"utf8");if(onboarding.includes("JSON.stringify")||onboarding.includes("name=\"payload\""))throw new Error("customer onboarding must not expose the internal Business Truth JSON contract");
 if(!onboarding.includes("Connect Google Ads")||!onboarding.includes("Business Truth")||!onboarding.includes("First analysis"))throw new Error("guided onboarding activation gates are incomplete");
 const oauthCallback=fs.readFileSync(path.join(root,"app/api/google-ads/oauth/callback/route.ts"),"utf8");if(!oauthCallback.includes("getClaims()")||!oauthCallback.includes("getSession()"))throw new Error("Google OAuth callback must bind the callback to a verified product session");

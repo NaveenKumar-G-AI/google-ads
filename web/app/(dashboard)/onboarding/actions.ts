@@ -1,6 +1,8 @@
 "use server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
+import { recordMarketingEvent } from "@/lib/marketing-analytics-server";
 import {
   createOrganization, createBillingCheckout, reconcileBilling, startGoogleAdsOAuth,
   selectGoogleAdsAccounts, saveGuidedBusinessTruth, saveMeasurementProfile,
@@ -40,6 +42,7 @@ export async function reconcileBillingAction(formData:FormData){
 export async function connectGoogleAdsAction(formData:FormData){
   const tenant=String(formData.get("tenant")); const email=String(formData.get("email")??"").trim();
   const result=await safe(()=>startGoogleAdsOAuth(tenant,`/onboarding?tenant=${encodeURIComponent(tenant)}`,email||null),tenant);
+  recordMarketingEvent("oauth_connection_started","onboarding",await headers());
   redirect(result.authorization_url);
 }
 

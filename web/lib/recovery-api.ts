@@ -142,7 +142,7 @@ export const revokeReportShare=(tenantId:string,shareId:string)=>apiFetch<Report
 export const getReportSchedules=(tenantId:string)=>apiFetch<ReportSchedule[]>(`/v1/tenants/${tenantId}/report-schedules`);
 export const saveReportSchedule=(tenantId:string,payload:Record<string,unknown>)=>apiFetch<ReportSchedule>(`/v1/tenants/${tenantId}/report-schedules`,{method:"POST",body:JSON.stringify(payload)});
 
-export async function publicApiFetch<T>(path:string):Promise<T>{const response=await fetch(`${API}${path}`,{cache:"no-store",headers:{"Content-Type":"application/json"}});if(!response.ok){const body=await response.json().catch(()=>null);throw new Error(body?.error?.message??`Public Recovery API request failed (${response.status})`)}return await response.json() as T}
+export async function publicApiFetch<T>(path:string,signal?:AbortSignal):Promise<T>{const response=await fetch(`${API}${path}`,{cache:"no-store",signal,headers:{"Content-Type":"application/json"}});if(!response.ok){const body=await response.json().catch(()=>null);throw new Error(body?.error?.message??`Public Recovery API request failed (${response.status})`)}return await response.json() as T}
 export const getPublicReport=(token:string)=>publicApiFetch<PublicReport>(`/v1/public/report-shares/${encodeURIComponent(token)}`);
 
 import type { OrganizationMember,OrganizationInvite,ClientWorkspace,AccountAssignment,OrganizationActivity } from "@/lib/types";
@@ -182,7 +182,7 @@ import type { InternalReleaseObservation } from "@/lib/types";
 export const getInternalReleaseHistory=()=>apiFetch<InternalReleaseObservation[]>("/v1/internal/releases?limit=100");
 
 import type { PublicLaunchStatus,InternalLaunchStatus,InternalLaunchAccess,InternalLaunchQualification } from "@/lib/types";
-export const getPublicLaunchStatus=()=>publicApiFetch<PublicLaunchStatus>("/v1/launch/status");
+export const getPublicLaunchStatus=(signal?:AbortSignal)=>publicApiFetch<PublicLaunchStatus>("/v1/launch/status",signal);
 export const getPersonalLaunchStatus=()=>apiFetch<PublicLaunchStatus>("/v1/launch/status/me");
 export const getInternalLaunchStatus=()=>apiFetch<InternalLaunchStatus>("/v1/internal/launch");
 export const getInternalLaunchAccess=()=>apiFetch<InternalLaunchAccess[]>("/v1/internal/launch/access?limit=300");

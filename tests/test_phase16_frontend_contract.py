@@ -3,7 +3,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]/"web"
 
 def test_frontend_never_contains_backend_or_provider_secret_names():
-    text="\n".join(p.read_text(encoding="utf-8") for p in ROOT.rglob("*") if p.suffix in {".ts",".tsx"})
+    text="\n".join(p.read_text(encoding="utf-8") for source in ("app", "lib", "components") for p in (ROOT/source).rglob("*") if p.suffix in {".ts",".tsx"})
     for secret in ("SUPABASE_SERVICE_ROLE_KEY","RECOVERY_STAGING_DATABASE_URL","GOOGLE_ADS_JSON_KEY_FILE_PATH","GEMINI_API_KEY"):
         assert secret not in text
 

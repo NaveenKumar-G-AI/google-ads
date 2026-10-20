@@ -1,6 +1,10 @@
-# Recovery OS web dashboard
+# Recovery OS website and dashboard
 
 Next.js 16.4 + React 19.3 + Supabase SSR auth.
+
+The public homepage is at `/`, the interactive synthetic tour is at `/demo`, and the authenticated application remains at `/app`. Public pages can be previewed without Supabase credentials. Account creation and activation use the existing authenticated setup.
+
+See [Landing experience](../docs/LANDING_EXPERIENCE.md) for routes, optional booking/support/legal destinations, analytics, Render configuration and browser verification. The [product truth inventory](../docs/LANDING_PRODUCT_TRUTH_INVENTORY.md) governs public claims and demo data.
 
 ## Environment
 
@@ -17,7 +21,7 @@ Never put a Supabase service-role key, PostgreSQL DSN, Google Ads service-accoun
 ## Run
 
 ```powershell
-npm install
+npm ci
 npm run validate
 npm run dev
 ```
