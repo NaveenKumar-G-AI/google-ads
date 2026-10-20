@@ -85,26 +85,27 @@ ON recovery.billing_checkout_intents(provider_subscription_id);
 CREATE INDEX IF NOT EXISTS idx_billing_snapshots_tenant_observed
 ON recovery.billing_subscription_snapshots(tenant_id, observed_at DESC);
 
+
 -- Evidence/history tables are append-only.
 DO $$ BEGIN
     CREATE TRIGGER billing_webhook_events_append_only
     BEFORE UPDATE OR DELETE ON recovery.billing_webhook_events
-    FOR EACH ROW EXECUTE FUNCTION recovery.reject_update_delete();
+    FOR EACH ROW EXECUTE FUNCTION recovery_private.prevent_immutable_mutation();
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
     CREATE TRIGGER billing_webhook_results_append_only
     BEFORE UPDATE OR DELETE ON recovery.billing_webhook_results
-    FOR EACH ROW EXECUTE FUNCTION recovery.reject_update_delete();
+    FOR EACH ROW EXECUTE FUNCTION recovery_private.prevent_immutable_mutation();
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
     CREATE TRIGGER billing_subscription_snapshots_append_only
     BEFORE UPDATE OR DELETE ON recovery.billing_subscription_snapshots
-    FOR EACH ROW EXECUTE FUNCTION recovery.reject_update_delete();
+    FOR EACH ROW EXECUTE FUNCTION recovery_private.prevent_immutable_mutation();
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
     CREATE TRIGGER billing_account_slots_no_delete
     BEFORE DELETE ON recovery.billing_account_slots
-    FOR EACH ROW EXECUTE FUNCTION recovery.reject_update_delete();
+    FOR EACH ROW EXECUTE FUNCTION recovery_private.prevent_immutable_mutation();
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 ALTER TABLE recovery.billing_checkout_intents ENABLE ROW LEVEL SECURITY;
@@ -118,21 +119,21 @@ ALTER TABLE recovery.billing_account_slots FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
     CREATE POLICY billing_checkout_tenant_policy ON recovery.billing_checkout_intents
-      USING (tenant_id = recovery.current_tenant_id())
-      WITH CHECK (tenant_id = recovery.current_tenant_id());
+      USING (tenant_id = recovery_private.current_tenant_id())
+      WITH CHECK (tenant_id = recovery_private.current_tenant_id());
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
     CREATE POLICY billing_snapshots_tenant_policy ON recovery.billing_subscription_snapshots
-      USING (tenant_id = recovery.current_tenant_id())
-      WITH CHECK (tenant_id = recovery.current_tenant_id());
+      USING (tenant_id = recovery_private.current_tenant_id())
+      WITH CHECK (tenant_id = recovery_private.current_tenant_id());
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
     CREATE POLICY billing_current_tenant_policy ON recovery.billing_tenant_current
-      USING (tenant_id = recovery.current_tenant_id())
-      WITH CHECK (tenant_id = recovery.current_tenant_id());
+      USING (tenant_id = recovery_private.current_tenant_id())
+      WITH CHECK (tenant_id = recovery_private.current_tenant_id());
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
     CREATE POLICY billing_slots_tenant_policy ON recovery.billing_account_slots
-      USING (tenant_id = recovery.current_tenant_id())
-      WITH CHECK (tenant_id = recovery.current_tenant_id());
+      USING (tenant_id = recovery_private.current_tenant_id())
+      WITH CHECK (tenant_id = recovery_private.current_tenant_id());
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
