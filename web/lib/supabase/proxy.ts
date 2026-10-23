@@ -15,20 +15,26 @@ export async function updateSession(request: NextRequest) {
   if (publicPaths.has(pathname)) return response;
   if (["/connect", "/signup", "/login"].includes(pathname)
     && (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)) return response;
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
-      cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+  try {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+      {
+        cookies: {
+          getAll: () => request.cookies.getAll(),
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+            response = NextResponse.next({ request });
+            cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+          }
         }
       }
-    }
-  );
-  await supabase.auth.getClaims();
+    );
+    await supabase.auth.getClaims();
+  } catch {
+    // Refresh is best effort; protected pages, actions and handlers still verify
+    // identity before requesting data. Keep any cookies changed before failure.
+    // Let those handlers render their safe auth failure instead of a proxy 500.
+  }
   return response;
 }

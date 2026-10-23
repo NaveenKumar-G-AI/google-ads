@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
 from recovery.db.postgres import PostgresRecoveryRepository
+from recovery.build_identity import get_build_identity, validate_build_identity
 from recovery.deployment import database_ready
 from recovery.billing import (BillingAccessError, BillingWebhookAuthError, BillingProviderError, CheckoutAmbiguousError, BillingMutationAmbiguousError, BillingPlanCatalog, RazorpayProvider)
 
@@ -76,6 +77,7 @@ from .onboarding_service import (
     OnboardingApplicationService, OnboardingNotConfigured, OAuthConnectionRuntime, PostgresOnboardingStore
 )
 from recovery.onboarding import GoogleOAuthProvider, GoogleOAuthSettings, GoogleSecretManagerCredentialVault
+from recovery.signup_abuse import TurnstileConfig, TurnstileVerifier
 from .settings import ApiSettings
 
 
@@ -378,6 +380,7 @@ def create_app(*, repository: ApiRepository, verifier: TokenVerifier,
             "service": "recovery-api",
             "version": "0.35.0",
             "release_id": os.environ.get("RECOVERY_RELEASE_ID", "unversioned").strip() or "unversioned",
+            **get_build_identity(),
         }
 
     @app.get("/readyz")
@@ -1489,6 +1492,7 @@ def create_app(*, repository: ApiRepository, verifier: TokenVerifier,
 
 
 def create_app_from_env() -> FastAPI:
+    validate_build_identity()
     settings = ApiSettings.from_env()
     core = PostgresRecoveryRepository(settings.database_url)
     repo = PostgresApiRepository(core)

@@ -43,4 +43,5 @@ testpaths = ["tests"]
 addopts = "-q"
 
 [tool.setuptools.package-data]
+"recovery" = ["_build_metadata.json"]
 "recovery.db.migrations" = ["*.sql"]

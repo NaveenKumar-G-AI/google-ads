@@ -4,3 +4,4 @@ param(
 $ErrorActionPreference = "Stop"
 $env:DATABASE_URL = $DatabaseUrl
 recovery-migrate
+if ($LASTEXITCODE -ne 0) { throw "Database migrations failed (exit $LASTEXITCODE)." }

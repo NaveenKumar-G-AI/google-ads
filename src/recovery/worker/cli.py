@@ -7,6 +7,7 @@ import socket
 import threading
 
 from recovery.api.jobs import JobType
+from recovery.build_identity import validate_build_identity
 from recovery.db.postgres import PostgresRecoveryRepository
 from recovery.semantic_ai import CandidateSemanticAI, GeminiInteractionsTransport
 from recovery.semantic_production import PostgresSemanticProductionStore, PostgresSemanticReleaseResolver
@@ -31,6 +32,7 @@ from .store import PostgresWorkerStore
 
 
 def build_runtime(*, worker_id: str, lease_seconds: int) -> WorkerRuntime:
+    validate_build_identity()
     dsn = os.environ.get("RECOVERY_WORKER_DATABASE_URL", "").strip()
     if not dsn:
         raise SystemExit("RECOVERY_WORKER_DATABASE_URL is required")

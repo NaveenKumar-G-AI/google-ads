@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "validate": "node scripts/validate.mjs"
+    "validate": "node scripts/validate.mjs",
+    "test:runtime": "node scripts/test-marketing-analytics.mjs && node scripts/test-auth-flows.mjs && node scripts/test-recovery-api.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

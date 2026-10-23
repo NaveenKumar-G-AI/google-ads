@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { recordMarketingEvent } from "@/lib/marketing-analytics-server";
+import { recoveryApiErrorMessage } from "@/lib/recovery-api-transport";
 import {
   createOrganization, createBillingCheckout, reconcileBilling, startGoogleAdsOAuth,
   selectGoogleAdsAccounts, saveGuidedBusinessTruth, saveMeasurementProfile,
@@ -10,9 +11,8 @@ import {
 } from "@/lib/recovery-api";
 
 const lines=(v:FormDataEntryValue|null)=>String(v??"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-const message=(e:unknown)=>e instanceof Error?e.message.slice(0,300):"The operation could not be completed";
 function onboardingUrl(tenant?:string, account?:string, error?:string){const p=new URLSearchParams();if(tenant)p.set("tenant",tenant);if(account)p.set("account",account);if(error)p.set("setup_error",error);return `/onboarding${p.size?`?${p}`:""}`}
-async function safe<T>(fn:()=>Promise<T>,tenant?:string,account?:string):Promise<T>{try{return await fn()}catch(e){redirect(onboardingUrl(tenant,account,message(e)))}}
+async function safe<T>(fn:()=>Promise<T>,tenant?:string,account?:string):Promise<T>{try{return await fn()}catch(e){redirect(onboardingUrl(tenant,account,recoveryApiErrorMessage(e)))}}
 
 export async function createOrganizationAction(formData:FormData){
   const name=String(formData.get("display_name")??"").trim();

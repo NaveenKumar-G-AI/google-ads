@@ -44,3 +44,4 @@ gcloud run worker-pools deploy $WorkerPool `
   --args "--lease-seconds=300,--idle-seconds=2" `
   --set-env-vars $EnvVars `
   --update-secrets $Secrets
+if ($LASTEXITCODE -ne 0) { throw "Worker deployment failed (exit $LASTEXITCODE)." }

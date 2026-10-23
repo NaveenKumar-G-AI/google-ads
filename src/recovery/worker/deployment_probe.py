@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from typing import Any
 from uuid import UUID
+from recovery.build_identity import get_build_identity
 
 
 class DeploymentProbeJobRunner:
@@ -17,4 +18,5 @@ class DeploymentProbeJobRunner:
             "tenant_id": str(tenant_id),
             "worker_version": "0.35.0",
             "release_id": os.environ.get("RECOVERY_RELEASE_ID", "unversioned").strip() or "unversioned",
+            **get_build_identity(),
         }

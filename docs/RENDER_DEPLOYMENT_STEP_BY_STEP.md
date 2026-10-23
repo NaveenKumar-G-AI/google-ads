@@ -1,12 +1,14 @@
 # Google Ads Recovery OS deployment on Render
 
-Detailed operator guide for this repository. Provider instructions researched 18 October 2026; repository-specific instructions updated 20 October 2026 for the public landing experience.
+Detailed operator guide for this repository. Provider instructions researched 18 October 2026; repository-specific instructions updated 21 October 2026 for the production hardening release. Render Docker build arguments and default environment variables were rechecked on 21 October; other provider instructions retain their original research date.
 
 This guide takes you from the project on your Windows computer to a working Render deployment, then through controlled customer onboarding and public-launch checks. Follow the sections in order. Each checkpoint tells you what must work before continuing.
 
 The provider instructions were checked against documentation on the research date above. They have not been executed against your Render, Supabase, Google, or Razorpay accounts. Dashboard wording can vary slightly by account and UI version. A completed Render build is infrastructure success; public launch also requires the application checks described below.
 
 To read comfortably, open this file in VS Code and press **Ctrl+Shift+V** for Markdown Preview. Follow sections 1–10 for the first working login, 11–16 for connected pilot use, and 17–23 for validation and production operations.
+
+If the three services already exist, start with the [production hardening release checklist](PRODUCTION_HARDENING_RELEASE.md). It describes updating the existing deployment, the checks added for onboarding and build identity, and the live checks still required before public launch. This release adds no SQL migrations.
 
 ## Contents
 
@@ -76,6 +78,7 @@ Use a Background Worker for the long-running worker process. It has no customer-
 - **Migration:** a versioned SQL change that creates or updates database structures.
 - **Origin:** `https://hostname`, without a page path or trailing slash.
 - **Release ID:** a shared identifier for the exact code version deployed to API and worker.
+- **Build identity:** the backend image's embedded release, Git revision label and hash of the packaged source/build inputs. The source hash is separate from the container registry's image digest.
 
 ### Choose the first deployment mode
 
@@ -95,6 +98,8 @@ Use paid, continuously running instances for production. Check the current price
 | GitHub repository | `YOUR-ACCOUNT/google-ads-v1` |
 | Branch | Your actual branch, not automatically `main` |
 | Release ID | Full Git commit SHA from `git rev-parse HEAD` |
+| Embedded build revision | Same full Git commit SHA; compare it with Render's active deployment |
+| Backend image digest | Registry `sha256:...` when using one prebuilt image for API and worker |
 | Supabase project URL | `https://YOUR-PROJECT.supabase.co` |
 | Supabase project reference | From the project dashboard |
 | Migration database DSN | Privileged connection, local maintenance only |
@@ -153,6 +158,26 @@ git rev-parse HEAD
 5. Save the branch and full commit SHA in your worksheet.
 6. Ensure that exact commit is pushed to GitHub.
 
+### Check the candidate before deploying
+
+1. Open the repository on GitHub and click **Actions**.
+2. Open the **Production checks** workflow run for the intended commit. The workflow is defined in `.github/workflows/production-checks.yml`.
+3. Wait for both `backend` and `frontend` jobs to pass. A workflow file in Git is not evidence that its checks have run.
+4. The backend job runs the test suite on Linux, builds the actual backend Dockerfile and checks the installed package and PDF renderer without network access. The frontend job validates source, runs runtime regression checks, builds Next.js and checks types.
+5. If either job fails, open that job, select its first failed step, fix the error and push a new reviewed commit. Record the new commit SHA before deployment.
+
+For the equivalent frontend commands locally, open a terminal in `web` and run each command only after the previous one succeeds:
+
+```powershell
+npm ci
+npm run validate
+npm run test:runtime
+npm run build
+npx tsc --noEmit --incremental false
+```
+
+Run backend tests with the native PDF dependencies available, preferably through the Linux workflow. A Windows host missing Pango/GObject cannot validate the PDF renderer used by the Linux production image.
+
 **Checkpoint:** GitHub contains the intended code and you know its branch and commit SHA.
 
 ## 4. Create or identify the Supabase project
@@ -198,6 +223,8 @@ Supabase documents direct connections and IPv4-compatible session pooling separa
 ## 5. Apply every database migration locally
 
 The current repository contains **24 SQL migrations**, from `0001_phase8_core.sql` through `0024_v1_customer_security_support.sql`. Some older README sections mention only two or six; use the migration runner, which discovers the complete packaged set.
+
+The 21 October production hardening changes do not add a migration. If your existing database already has all 24 matching migration versions, this release does not require changing them. Do not manually rerun or edit `0007_phase17_billing_onboarding.sql` to diagnose an HTTP 404; first use the route checks in section 17.
 
 Run these commands in your Windows terminal, not in the Render build-command field.
 
@@ -353,6 +380,16 @@ Render exposes the Dockerfile path and optional Docker Command override in Docke
 
 The Dockerfile supplies `PORT=8080`, and its command listens on `0.0.0.0` using `PORT`. There is no need to hard-code a localhost listener or add a Windows start command.
 
+### Set the backend build identity
+
+1. Keep `RECOVERY_RELEASE_ID` set to the recorded full commit SHA before building the image.
+2. For a Git-based Render service, leave `RECOVERY_BUILD_REVISION` unset. The Dockerfile reads Render's `RENDER_GIT_COMMIT` as the build revision. Do not manually override `RENDER_GIT_COMMIT`.
+3. Deploy the recorded commit. If your selected branch has advanced, select the intended commit in the manual deployment controls rather than relabeling another revision.
+4. The build writes the release, revision and source hash into the installed Python package. API and worker startup reject a runtime release that conflicts with the embedded release; a mismatching Render Git revision is also rejected.
+5. When changing `RECOVERY_RELEASE_ID` for a new release, rebuild the matching code or select its matching prebuilt image. Restarting an old stamped image with a new label cannot publish new code.
+
+Render makes service environment settings available as Docker build arguments and supplies `RENDER_GIT_COMMIT` for Git deployments. The Dockerfile declares only non-secret identity arguments. The repository's `.dockerignore` allows only the backend build inputs into its context. [Render Docker environment translation](https://render.com/docs/docker), [Render default environment variables](https://render.com/docs/environment-variables)
+
 ### Start and verify the API deployment
 
 1. Click **Deploy Web Service** or the equivalent creation button.
@@ -365,6 +402,8 @@ The Dockerfile supplies `PORT=8080`, and its command listens on `0.0.0.0` using 
 8. Open `YOUR_API_URL/readyz`.
 9. Confirm HTTP 200 and database/migration readiness.
 10. If `/healthz` works but `/readyz` fails, check the API DSN, database grants and migration version. Do not declare deployment complete based on `/healthz` alone.
+11. Open `YOUR_API_URL/buildz`. Confirm `build_identity` is `embedded`, `build_release_id` matches `release_id`, `build_revision` is the intended full commit SHA and `build_source_sha256` is present.
+12. Compare the embedded revision with the active deployment commit shown in Render. Keep the values in the release record. A source hash does not prove that two separately built images contain identical operating-system libraries or dependencies; section 19 covers deploying one registry digest.
 
 **Checkpoint:** both health endpoints work with the intended database.
 
@@ -393,7 +432,7 @@ The repository now includes `web/package-lock.json`. Commit and push it together
 
 | Key | Value |
 | --- | --- |
-| `NODE_VERSION` | `24.21.0`, the current Render-documented default; validate it with this project's build |
+| `NODE_VERSION` | `24.14.0`, matching this repository's production-checks workflow; validate any version change before deploying |
 | `NODE_ENV` | `production` |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key |
@@ -415,6 +454,8 @@ Public Next.js values can be embedded during build, so rebuild after changing th
 Render supports selecting the runtime with `NODE_VERSION`; pinning it avoids a new service silently choosing a different default. [Render Node version selection](https://render.com/docs/node-version)
 
 Do not add `DATABASE_URL`, the worker DSN, Google private keys, Razorpay secrets or a Supabase secret/service-role key to this frontend service. `RECOVERY_API_BASE_URL` is read by its server-side code and does not need a `NEXT_PUBLIC_` prefix.
+
+Both URL settings must be origins only: `https://hostname`, with no `/v1`, `/app`, `/login`, query, fragment or credentials. The request transport normalizes trailing slashes. Production authentication callbacks require a valid `NEXT_PUBLIC_SITE_URL` and use it as their destination. API requests time out after at most 30 seconds and are not automatically replayed; after a timeout on an action, inspect its status before submitting again.
 
 ### Configure the public website's contact and service links
 
@@ -614,6 +655,8 @@ The worker's optional health server is not a public Render Web Service. Do not w
 
 **Checkpoint:** API, dashboard and worker are running; API and worker share the same release ID.
 
+The worker validates the same embedded build stamp as the API. Its deployment-probe job returns that stamp for the authenticated acceptance check in section 17; there is no public worker `/buildz` URL.
+
 ## 13. Configure legal links and optional report delivery
 
 Workspace creation requires current Terms and Privacy identities even when you are doing a controlled pilot.
@@ -762,6 +805,26 @@ Do not click apply/execute/rollback controls merely to test hosting on a real ad
 
 ## 17. Run readiness and deployed acceptance
 
+### First run the public HTTP and onboarding route checks
+
+This read-only diagnostic needs Python but no installed application dependencies, bearer token or database connection. It checks reachable pages and the public API contract. It does not create a workspace, run a worker job or prove a signed-in session works.
+
+1. Open VS Code and choose **Terminal → New Terminal** in the repository root.
+2. Copy the actual API and frontend origins from Render. For the existing services supplied during this investigation, they are `https://recovery-api-9efn.onrender.com` and `https://recovery-web-7nnv.onrender.com`; verify they are still the services you intend to test.
+3. Replace the placeholders in the following command with those origins and the release you just deployed:
+
+```powershell
+python .\src\recovery\deployment_contract.py --api-url https://YOUR-API-HOST --dashboard-url https://YOUR-DASHBOARD-HOST --expected-release-id YOUR-RELEASE-ID --require-build-identity
+```
+
+4. Read the JSON output. `passed: true` and exit code `0` mean every requested check passed. In PowerShell, inspect `$LASTEXITCODE` immediately after the command if needed.
+5. Both `/v1/me` and `/v1/launch/status/me` must return `401` with `AUTHENTICATION_FAILED` when no user token is provided. This is expected protection. A `404` is a route/deployment problem to investigate, not a reason to weaken authentication or rerun a SQL file.
+6. Confirm both routes also appear in `/openapi.json`. Confirm the deployed build release matches the candidate. If inspecting an older deployment that predates embedded metadata, omit `--require-build-identity` for diagnosis only; restore the flag for this release's acceptance.
+7. Keep the result in private release evidence. The diagnostic prints no tokens because it does not use any.
+8. After deliberately completing the public transition in section 20, rerun the same command with `--require-public` appended. That additional check requires public workspace creation, current legal identities and configured signup abuse protection. A failure while launch is closed is expected; do not open launch merely to make this diagnostic pass.
+
+If the package is installed from the current candidate, `python -m recovery.deployment_contract` accepts the same arguments. A passing public diagnostic still requires the authenticated and provider checks below.
+
 ### Configuration and database readiness
 
 The CLI `recovery-production-check` checks a combined API/worker configuration. It needs both DSNs, Supabase, origins, Gemini, and any enabled provider settings. It is not an instruction to put the worker's privileged DSN permanently on the API.
@@ -808,16 +871,16 @@ RECOVERY_RELEASE_ID
 5. Run the initial acceptance command:
 
 ```powershell
-.\.venv\Scripts\recovery-staging-accept.exe --report staging-acceptance.json
+.\.venv\Scripts\recovery-staging-accept.exe --require-build-identity --report staging-acceptance.json
 ```
 
 6. For the full staging rehearsal with test billing and a Google test account, run:
 
 ```powershell
-.\.venv\Scripts\recovery-staging-accept.exe --require-billing-full --require-google-ads-read --require-google-test-account --report staging-acceptance.json
+.\.venv\Scripts\recovery-staging-accept.exe --require-build-identity --require-billing-full --require-google-ads-read --require-google-test-account --report staging-acceptance.json
 ```
 
-7. Confirm API liveness/readiness, release identity, authenticated API, dashboard and worker round trip pass. The full run must also prove Google read access and billing entitlement.
+7. Confirm API liveness/readiness, embedded API/worker build identity, authenticated API, dashboard and worker round trip pass. `--require-build-identity` requires complete embedded release, revision and source-hash fields and compares API with the worker's probe result. The full run must also prove Google read access and billing entitlement.
 8. Keep the report in private release evidence storage. Reports can contain operational identifiers even when secrets are excluded.
 
 ## 18. Add your custom domain
@@ -914,10 +977,10 @@ For an operator-managed build using Docker Hub:
 docker login
 ```
 
-5. Replace `YOUR-NAMESPACE` and `YOUR-RELEASE-ID`, then build and push once:
+5. Replace `YOUR-NAMESPACE`, `YOUR-RELEASE-ID` and `FULL-COMMIT-SHA`, then build and push once. Use the full reviewed commit SHA for both identity values when following this guide:
 
 ```powershell
-docker buildx build --platform linux/amd64 -f deploy/Dockerfile.backend -t docker.io/YOUR-NAMESPACE/recovery-backend:YOUR-RELEASE-ID --push .
+docker buildx build --platform linux/amd64 --build-arg RECOVERY_RELEASE_ID=YOUR-RELEASE-ID --build-arg RECOVERY_BUILD_REVISION=FULL-COMMIT-SHA -f deploy/Dockerfile.backend -t docker.io/YOUR-NAMESPACE/recovery-backend:YOUR-RELEASE-ID --push .
 docker buildx imagetools inspect docker.io/YOUR-NAMESPACE/recovery-backend:YOUR-RELEASE-ID
 ```
 
@@ -925,14 +988,14 @@ docker buildx imagetools inspect docker.io/YOUR-NAMESPACE/recovery-backend:YOUR-
 7. Create a read-only registry token for Render; keep the publishing credential separate.
 8. In Render, choose **New → Web Service → Existing Image**.
 9. Enter the recorded digest reference, add the registry pull credential, and connect.
-10. Apply section 8's API environment/health settings. A prebuilt image does not need a Git root or Dockerfile field.
+10. Apply section 8's API environment/health settings, including the exact `RECOVERY_RELEASE_ID` stamped during the build. A prebuilt image does not need a Git root or Dockerfile field. Changing runtime `RECOVERY_BUILD_REVISION` cannot alter an already embedded stamp.
 11. Create **New → Background Worker → Existing Image** using the identical digest.
 12. Apply section 12's settings and override Docker Command with `recovery-worker`.
 13. Keep that image available in the registry for restarts and rollback. Do not delete the previous approved release image.
 
 Render requires `linux/amd64` images and accepts digest references for prebuilt services. [Render prebuilt image deployment](https://render.com/docs/deploying-an-image)
 
-If you retain Git-based builds, record that limitation and do not claim the existing single-immutable-image release contract was fully reproduced. Both approaches still require the exact matching `RECOVERY_RELEASE_ID` and deployed acceptance.
+If you retain Git-based builds, record that limitation and do not claim the existing single-immutable-image release contract was fully reproduced. Both approaches require matching embedded API/worker identity and deployed acceptance. `build_source_sha256` covers packaged Python/SQL files and selected build inputs; it is not the OCI image digest, and a supplied revision label is not a cryptographic attestation of Git provenance.
 
 ### Backups and operational checks
 
@@ -979,7 +1042,7 @@ pilot_tenant_setup
 2. Run production acceptance against the production URLs, a controlled production tenant, and a real non-test advertiser authorized for the read-only probe:
 
 ```powershell
-.\.venv\Scripts\recovery-staging-accept.exe --require-billing-full --require-google-ads-read --require-google-production-account --report production-acceptance.json
+.\.venv\Scripts\recovery-staging-accept.exe --require-build-identity --require-billing-full --require-google-ads-read --require-google-production-account --report production-acceptance.json
 ```
 
 The command retains its historical `staging` name, but these flags and environment inputs select production acceptance. The Google probe is read-only. Do not leave `--require-google-test-account` on this production command.
@@ -1036,6 +1099,7 @@ public_signup_abuse_controls
 16. Enter the qualified release ID and an operator reason.
 17. Click **Append launch event**.
 18. Verify new public workspace creation and Turnstile protection using a separate controlled account.
+19. Rerun section 17's public HTTP diagnostic with `--require-build-identity --require-public` and the qualified release ID. Retain its result alongside the authenticated acceptance and launch reports.
 
 See also the repository's `docs/V1_LAUNCH_RUNBOOK.md`. If a gate fails, keep launch restricted and resolve its listed failure rather than bypassing the gate.
 
@@ -1049,10 +1113,10 @@ See also the repository's `docs/V1_LAUNCH_RUNBOOK.md`. If a gate fails, keep lau
 6. Review compatibility: if old API/worker code cannot run against the new schema, use a coordinated maintenance window.
 7. Run migrations once through the maintenance path against the correct database. Do not run them independently on both API and worker startup.
 8. Reapply/audit grants for newly created database objects.
-9. Update `RECOVERY_RELEASE_ID` on API and worker to the same new value.
+9. Update `RECOVERY_RELEASE_ID` on API and worker to the same new value before building the new candidate. For prebuilt images, use the value already embedded in the selected digest.
 10. Deploy the matching backend artifacts. With Git services, use **Manual Deploy** and select the intended commit where available; do not accidentally deploy a newer branch head on one service.
 11. Deploy the matching dashboard version.
-12. Confirm `/readyz` and authenticated dashboard operation.
+12. Confirm `/readyz`, `/buildz`, the public HTTP diagnostic and authenticated dashboard operation. Compare the embedded revision with the intended commit and run acceptance with `--require-build-identity`.
 13. Repeat worker round-trip/provider acceptance appropriate to the change.
 14. Requalify launch evidence when the exact release requirement demands it.
 
@@ -1085,6 +1149,7 @@ Render supports manual deployment, pre-deploy steps and rollback operations. Thi
 | Booking, support or status link is unavailable | Add the real optional setting to `recovery-web` Environment as described in section 9, then deploy |
 | `/terms` or `/privacy` says the document is unavailable | Publish real policy documents, set their URLs and versions on the API, and check frontend `RECOVERY_API_BASE_URL`; do not point legal URLs back to the bridge pages |
 | `/readyz` returns 503 | Check network reachability, correct role DSN, grants and all migration checksums |
+| API or frontend intermittently returns 503 | Record the time and active deployment ID; inspect that service's Render Events and Logs for the first startup/runtime failure. Resolve recurring failures and repeat the full HTTP diagnostic before public launch; do not assume a free-tier or cold-start cause from the status alone |
 | Database host unreachable | Check IPv6 vs IPv4; use the project's session pooler when appropriate |
 | Database authentication failed | Verify role password, pooler username/project suffix and URI password encoding |
 | Permission denied for schema/table | Confirm role grants after migrations; do not replace API role with owner credentials |
@@ -1100,12 +1165,16 @@ Render supports manual deployment, pre-deploy steps and rollback operations. Thi
 | Account discovery/sync stays queued | Check worker is running with `recovery-worker`, worker DSN is correct and cross-tenant access works |
 | Worker repeatedly exits | Inspect the first traceback; check Gemini key, OAuth completeness, secret file and DB connection |
 | API works but dashboard cannot fetch it | Correct `RECOVERY_API_BASE_URL`; localhost refers to the frontend container, not your API |
+| Onboarding reports an unavailable endpoint or HTTP 404 | Run section 17's public route diagnostic; compare the frontend API origin, both protected routes, deployed OpenAPI and active commit/build stamp. Do not infer a database migration failure from an HTTP 404 |
+| Authentication callback says the service is unavailable | Check `NEXT_PUBLIC_SITE_URL` is the actual HTTPS origin, then rebuild/deploy; check Supabase availability and its auth logs |
+| A timeout appears after submitting an action | Refresh job/workspace/provider status before resubmitting; the transport makes one attempt and cannot establish whether an interrupted mutation completed |
 | Billing startup fails | All key/secret/plan settings are required when billing is enabled |
 | Webhook returns 401 | Check the webhook signing secret, live/test mode and exact endpoint |
 | Checkout returns but access remains limited | Inspect webhook delivery and server reconciliation; a browser callback is not entitlement proof |
 | PDF generation fails | Ensure worker uses the backend Dockerfile with Pango/fonts; inspect worker report error |
 | Turnstile fails | Match hostname, site/secret pair and environment; all three Turnstile settings must be complete |
-| Release identity mismatch | Deploy the intended commit/artifact and set the same release ID on both API and worker |
+| Release identity mismatch at startup | Rebuild the intended Git revision or select its matching prebuilt image; set the runtime release to that image's embedded release. Do not relabel an older artifact |
+| `api_build_identity` or `worker_build_identity` fails acceptance | Deploy this release's stamped Docker image to both services and confirm complete matching embedded release, revision and source hash; an old `/buildz` runtime label is insufficient |
 | Public transition is rejected | Import fresh qualified launch evidence for the exact release; inspect the returned gate error |
 
 ### How to inspect Render logs
@@ -1128,11 +1197,11 @@ For an interactive service shell, paid compatible services expose **Shell** afte
 - [ ] All required migrations for this release are applied.
 - [ ] API runtime role is not a superuser and does not bypass RLS.
 - [ ] Worker has its separate cross-tenant database credential.
-- [ ] API `/healthz` and `/readyz` pass.
+- [ ] API `/healthz` and `/readyz` pass; the public HTTP diagnostic confirms both initial onboarding routes are protected and registered.
 - [ ] Public homepage, supporting pages and the nine-step synthetic tour work on desktop and mobile.
 - [ ] Public connection and review actions lead to the intended signup/onboarding and configured contact destinations.
 - [ ] Dashboard login and email confirmation work on the actual HTTPS domain.
-- [ ] API and worker have matching release IDs; image identity limitations are recorded or resolved.
+- [ ] API and worker pass acceptance with `--require-build-identity`; embedded revisions match the reviewed release, and image identity limitations are recorded or resolved.
 - [ ] Google OAuth, token storage and account discovery work.
 - [ ] A read-only sync and analysis complete through the deployed worker.
 - [ ] Tenant access isolation has been tested.

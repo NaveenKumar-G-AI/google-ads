@@ -1,8 +1,8 @@
+import "server-only";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { RecoveryApiError, recoveryApiJson } from "@/lib/recovery-api-transport";
 import type { Account, Finding, Ledger, Me, ProposalState, Workspace, BillingPlan, BillingStatus, BillingCheckout, BillingPlanChangePreview, BillingLifecycleOperation, BillingInvoice, BillingInvoiceRefresh, BillingEntitlementHistory, BillingProfile, BillingAccountSlot, OnboardingStatus, DiscoveredGoogleAdsAccount, GoogleOAuthStart, MeasurementProfile, JobDetail } from "@/lib/types";
-
-const API = process.env.RECOVERY_API_BASE_URL ?? "http://127.0.0.1:8000";
 
 export async function accessToken(): Promise<string> {
   const supabase = await createClient();
@@ -16,20 +16,12 @@ export async function accessToken(): Promise<string> {
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await accessToken();
-  const response = await fetch(`${API}${path}`, {
-    ...init,
-    cache: "no-store",
-    headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json", ...(init.headers ?? {}) }
-  });
-  if (response.status === 401) redirect("/login");
-  if (!response.ok) {
-    const body = await response.json().catch(() => null);
-    throw new Error(body?.error?.message ?? `Recovery API request failed (${response.status})`);
+  try {
+    return await recoveryApiJson<T>(path, init, token);
+  } catch (error) {
+    if (error instanceof RecoveryApiError && error.status === 401) redirect("/login");
+    throw error;
   }
-  if (response.status === 204) return undefined as T;
-  const raw = await response.text();
-  if (!raw) return undefined as T;
-  return JSON.parse(raw) as T;
 }
 
 export const getMe = () => apiFetch<Me>("/v1/me");
@@ -142,7 +134,7 @@ export const revokeReportShare=(tenantId:string,shareId:string)=>apiFetch<Report
 export const getReportSchedules=(tenantId:string)=>apiFetch<ReportSchedule[]>(`/v1/tenants/${tenantId}/report-schedules`);
 export const saveReportSchedule=(tenantId:string,payload:Record<string,unknown>)=>apiFetch<ReportSchedule>(`/v1/tenants/${tenantId}/report-schedules`,{method:"POST",body:JSON.stringify(payload)});
 
-export async function publicApiFetch<T>(path:string,signal?:AbortSignal):Promise<T>{const response=await fetch(`${API}${path}`,{cache:"no-store",signal,headers:{"Content-Type":"application/json"}});if(!response.ok){const body=await response.json().catch(()=>null);throw new Error(body?.error?.message??`Public Recovery API request failed (${response.status})`)}return await response.json() as T}
+export async function publicApiFetch<T>(path:string,signal?:AbortSignal):Promise<T>{return recoveryApiJson<T>(path,{signal})}
 export const getPublicReport=(token:string)=>publicApiFetch<PublicReport>(`/v1/public/report-shares/${encodeURIComponent(token)}`);
 
 import type { OrganizationMember,OrganizationInvite,ClientWorkspace,AccountAssignment,OrganizationActivity } from "@/lib/types";

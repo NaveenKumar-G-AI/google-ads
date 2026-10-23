@@ -1,0 +1,12 @@
+# Backend builds need only these inputs. Keep credentials, customer exports,
+# frontend dependencies and local caches out of the uploaded Docker context.
+**
+!pyproject.toml
+!README.md
+!deploy/
+!deploy/Dockerfile.backend
+!src/
+!src/recovery/
+!src/recovery/**/
+!src/recovery/**/*.py
+!src/recovery/**/*.sql

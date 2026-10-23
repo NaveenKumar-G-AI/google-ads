@@ -1,7 +1,10 @@
 steps:
   - name: gcr.io/cloud-builders/docker
-    args: ["build", "-f", "deploy/Dockerfile.backend", "-t", "${_IMAGE}", "."]
+    args: ["build", "-f", "deploy/Dockerfile.backend", "--build-arg", "RECOVERY_RELEASE_ID=${_RELEASE_ID}", "--build-arg", "RECOVERY_BUILD_REVISION=${_REVISION}", "-t", "${_IMAGE}", "."]
   - name: gcr.io/cloud-builders/docker
     args: ["push", "${_IMAGE}"]
 images:
   - "${_IMAGE}"
+substitutions:
+  _RELEASE_ID: ""
+  _REVISION: ""

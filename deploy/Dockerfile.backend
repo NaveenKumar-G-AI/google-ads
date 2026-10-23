@@ -1,4 +1,4 @@
-# Single immutable backend image used by both the Cloud Run API service and worker pool.
+# Single immutable backend image for the API and worker on Render or Cloud Run.
 FROM python:3.13-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -12,11 +12,18 @@ RUN groupadd --system recovery && useradd --system --gid recovery --create-home 
 WORKDIR /app
 
 COPY pyproject.toml README.md ./
+COPY deploy/Dockerfile.backend ./deploy/Dockerfile.backend
 COPY src ./src
-RUN python -m pip install --upgrade pip && python -m pip install .
+# Render supplies service environment values as build arguments. Only declare
+# non-secret identity fields; credentials must never enter an image layer.
+ARG RECOVERY_RELEASE_ID
+ARG RECOVERY_BUILD_REVISION
+ARG RENDER_GIT_COMMIT
+RUN python src/recovery/build_identity.py && \
+    python -m pip install --upgrade pip && python -m pip install .
 
 USER recovery
 EXPOSE 8080
 
-# Cloud Run API default. Worker Pool overrides command to `recovery-worker`.
+# API default. Background workers override the command to `recovery-worker`.
 CMD ["sh", "-c", "exec uvicorn recovery.api.app:create_app_from_env --factory --host 0.0.0.0 --port ${PORT:-8080} --proxy-headers --forwarded-allow-ips='*'"]

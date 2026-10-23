@@ -64,3 +64,4 @@ gcloud run deploy $Service `
   --startup-probe "httpGet.path=/healthz,httpGet.port=8080,initialDelaySeconds=1,failureThreshold=10,timeoutSeconds=2,periodSeconds=3" `
   --readiness-probe "httpGet.path=/readyz,httpGet.port=8080,failureThreshold=3,timeoutSeconds=3,periodSeconds=10" `
   --liveness-probe "httpGet.path=/healthz,httpGet.port=8080,initialDelaySeconds=10,failureThreshold=3,timeoutSeconds=2,periodSeconds=30"
+if ($LASTEXITCODE -ne 0) { throw "API deployment failed (exit $LASTEXITCODE)." }

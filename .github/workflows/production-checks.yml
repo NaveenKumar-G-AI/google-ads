@@ -1,0 +1,59 @@
+name: Production checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - name: Install native PDF libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 fonts-noto-core
+      - run: python -m pip install '.[dev]'
+      - run: python -B -X utf8 -m pytest -p no:cacheprovider
+      - name: Build the production backend image
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+        run: docker build --build-arg RECOVERY_RELEASE_ID="$RELEASE_SHA" --build-arg RECOVERY_BUILD_REVISION="$RELEASE_SHA" -f deploy/Dockerfile.backend -t recovery-backend-ci .
+      - name: Verify installed image without network access
+        run: docker run --rm --network none -i --entrypoint python recovery-backend-ci < deploy/smoke-backend.py
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.14.0'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run validate
+      - run: npm run test:runtime
+      - run: npm run build
+      - run: npx tsc --noEmit --incremental false
